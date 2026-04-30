@@ -13,56 +13,18 @@ import "leaflet/dist/leaflet.css";
 
 import getWeather from "../Functions/getWeather";
 import getPlaces from "../Functions/getPlaces";
+import getWeatherType from "../Functions/getWeatherType";
+import getYourLocation from "../Functions/getYourLocation";
+import getEmoji from "../Functions/getEmoji";
 
-// 🌦️ Weather code → weather type
-const getWeatherType = (code) => {
-
-  if (code === 0) return "sun";
-
-  if (code <= 3) return "cloud";
-
-  if (code >= 45 && code <= 67)
-    return "rain";
-
-  if (code >= 71 && code <= 77)
-    return "snow";
-
-  if (code >= 95)
-    return "storm";
-
-  return "cloud";
-};
-
-// 🌈 Weather emoji
-const getEmoji = (type) => {
-
-  switch (type) {
-
-    case "sun":
-      return "☀️";
-
-    case "cloud":
-      return "☁️";
-
-    case "rain":
-      return "🌧️";
-
-    case "storm":
-      return "⛈️";
-
-    default:
-      return "🌤️";
-  }
-};
-
-// 🎯 Custom weather icon
+// 🌦️ Weather icon
 const createIcon = (emoji) =>
   L.divIcon({
     html: `
       <div style="
-        font-size: 28px;
+        font-size: 30px;
         transform: translate(-50%, -50%);
-        filter: drop-shadow(0 0 6px rgba(255,255,255,0.6));
+        filter: drop-shadow(0 0 8px rgba(255,255,255,0.7));
       ">
         ${emoji}
       </div>
@@ -71,7 +33,7 @@ const createIcon = (emoji) =>
     iconSize: [30, 30],
   });
 
-// 🌍 Calculate visible map width in KM
+// 📏 Calculate visible map width
 const getMapWidthKm = (bounds) => {
 
   const west = bounds.getWest();
@@ -91,7 +53,6 @@ const getMapWidthKm = (bounds) => {
   );
 };
 
-// 🌦️ Weather Layer
 function WeatherLayer() {
 
   const map = useMap();
@@ -99,37 +60,57 @@ function WeatherLayer() {
   const [places, setPlaces] =
     useState([]);
 
-  // ✅ Last valid zoom
-  const lastValidZoom =
-    useRef(map.getZoom());
+  const [userLocation, setUserLocation] =
+    useState(null);
+
+  const [userWeather, setUserWeather] =
+    useState(null);
+
+  // 🧠 debounce timer
+  const timeoutRef =
+    useRef(null);
 
   useEffect(() => {
 
-    // 🚫 Prevent zoom below 10km
-    const enforceMinWidth = () => {
+    // 📍 User location
+    const fetchUserLocation =
+      async () => {
 
-      const bounds =
-        map.getBounds();
+      try {
 
-      const widthKm =
-        getMapWidthKm(bounds);
+        const location =
+          await getYourLocation();
 
-      console.log(
-        "Current Width:",
-        widthKm
-      );
+        setUserLocation(location);
 
-      // ✅ Valid zoom
-      if (widthKm >= 10) {
+        const weather =
+          await getWeather(
+            location.lat,
+            location.lon
+          );
 
-        lastValidZoom.current =
-          map.getZoom();
+        const code =
+          weather?.current_weather
+          ?.weathercode;
 
-      } else {
+        setUserWeather(
+          getWeatherType(code)
+        );
 
-        // 🚫 Restore previous zoom
-        map.setZoom(
-          lastValidZoom.current
+        // 🎯 center on user
+        map.setView(
+          [
+            location.lat,
+            location.lon,
+          ],
+          11
+        );
+
+      } catch (err) {
+
+        console.log(
+          "Location Error:",
+          err
         );
       }
     };
@@ -149,29 +130,27 @@ function WeatherLayer() {
         widthKm
       );
 
-      // 🚫 STOP all API calls above 30km
-      if (widthKm > 30) {
-
-        console.log(
-          "Too zoomed out — skipping weather fetch"
-        );
+      // ❌ No weather if too zoomed out
+      if (widthKm > 75) {
 
         setPlaces([]);
+
+        console.log(
+          "Zoom in to view weather"
+        );
 
         return;
       }
 
       try {
 
-        // 🌍 Get visible real places
         const visiblePlaces =
           await getPlaces(bounds);
 
-        // ⚡ Limit requests
+        // limit requests
         const limitedPlaces =
-          visiblePlaces.slice(0, 15);
+          visiblePlaces.slice(0, 100);
 
-        // 🌦️ Fetch weather
         const results =
           await Promise.all(
 
@@ -192,11 +171,14 @@ function WeatherLayer() {
                     ?.weathercode;
 
                   return {
+
                     lat: p.lat,
                     lon: p.lon,
+
                     name:
                       p.tags?.name ||
                       "Unknown",
+
                     type:
                       getWeatherType(
                         code
@@ -229,31 +211,41 @@ function WeatherLayer() {
       }
     };
 
-    // Initial fetch
-    fetchWeather();
+    // 🚀 Debounced trigger
+    const triggerFetch =
+      () => {
 
-    // Events
+      clearTimeout(
+        timeoutRef.current
+      );
+
+      timeoutRef.current =
+        setTimeout(() => {
+
+          fetchWeather();
+
+        }, 500);
+    };
+
+    // Initial location
+    fetchUserLocation();
+
+    // Only ONE event
     map.on(
       "moveend",
-      fetchWeather
-    );
-
-    map.on(
-      "zoomend",
-      enforceMinWidth
+      triggerFetch
     );
 
     // Cleanup
     return () => {
 
-      map.off(
-        "moveend",
-        fetchWeather
+      clearTimeout(
+        timeoutRef.current
       );
 
       map.off(
-        "zoomend",
-        enforceMinWidth
+        "moveend",
+        triggerFetch
       );
     };
 
@@ -261,6 +253,68 @@ function WeatherLayer() {
 
   return (
     <>
+
+      {/* 📍 USER MARKER */}
+      {userLocation && (
+
+        <Marker
+          position={[
+            userLocation.lat,
+            userLocation.lon,
+          ]}
+          icon={L.divIcon({
+
+            html: `
+              <div style="
+                width: 48px;
+                height: 48px;
+
+                border-radius: 50%;
+
+                background:
+                  rgba(0,191,255,0.2);
+
+                border:
+                  2px solid #00bfff;
+
+                display:flex;
+                align-items:center;
+                justify-content:center;
+
+                font-size:24px;
+
+                box-shadow:
+                  0 0 20px #00bfff,
+                  0 0 40px rgba(0,191,255,0.5);
+              ">
+                ${getEmoji(userWeather)}
+              </div>
+            `,
+
+            className: "",
+
+            iconSize: [48, 48],
+          })}
+        >
+
+          <Popup>
+
+            <strong>
+              Your Location
+            </strong>
+
+            <br />
+
+            Weather:
+            {" "}
+            {userWeather}
+
+          </Popup>
+
+        </Marker>
+      )}
+
+      {/* 🌦️ WEATHER PLACES */}
       {places.map((p, i) => (
 
         <Marker
@@ -276,9 +330,12 @@ function WeatherLayer() {
 
           <Popup>
 
-            <strong>
+            <div style={{
+              fontSize: "16px",
+              fontWeight: "600",
+            }}>
               {p.name}
-            </strong>
+            </div>
 
             <br />
 
@@ -294,7 +351,6 @@ function WeatherLayer() {
   );
 }
 
-// 🌍 Main Map
 export default function MapView() {
 
   return (
@@ -305,21 +361,28 @@ export default function MapView() {
         77.5946,
       ]}
       zoom={11}
+
+      zoomAnimation={false}
+
       style={{
         height: "100vh",
         width: "100%",
       }}
     >
 
-      {/* 🌙 Dark map */}
       <TileLayer
         url="https://tiles.stadiamaps.com/tiles/alidade_smooth_dark/{z}/{x}/{y}{r}.png"
+
         attribution='&copy; OpenStreetMap contributors & Stadia Maps'
+
         detectRetina={true}
+
         maxZoom={20}
+
         tileSize={512}
+
         zoomOffset={-1}
-        />
+      />
 
       <WeatherLayer />
 
