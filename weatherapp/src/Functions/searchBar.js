@@ -1,82 +1,60 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import geocodeSearch from "./geocodeSearch";
 
-const geocodeSearch = async (query) => {
-  if (!query) return [];
+function SearchBar({ userLoc }) {
+  const [query, setQuery] = useState("");
+  const [places, setPlaces] = useState([]);
+  const [loading, setLoading] = useState(false);
 
-  const res = await fetch(
-    `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}`
-  );
-
-  const data = await res.json();
-
-  return data
-    .filter((item) => item.lat && item.lon)
-    .map((item) => ({
-      name: item.display_name,
-      lat: parseFloat(item.lat),
-      lon: parseFloat(item.lon),
-    }));
-};
-
-export default function SearchBar({ onSelect }) {
-  const [text, setText] = useState("");
-  const [suggestions, setSuggestions] = useState([]);
-
-  const handleChange = async (e) => {
-    const value = e.target.value;
-    setText(value);
-
-    if (value.length < 3) {
-      setSuggestions([]);
+  // debounce search
+  useEffect(() => {
+    // don't search for very small inputs
+    if (query.length < 3) {
+      setPlaces([]);
       return;
     }
 
-    const results = await geocodeSearch(value);
-    setSuggestions(results.slice(0, 5)); // top 5 closest/relevant
+    const timeout = setTimeout(async () => {
+      try {
+        setLoading(true);
+
+        const results = await geocodeSearch(query, userLoc);
+
+        setPlaces(results);
+      } catch (err) {
+        console.error("Search error:", err);
+      } finally {
+        setLoading(false);
+      }
+    }, 1000);
+
+    // cleanup old timer
+    return () => clearTimeout(timeout);
+
+  }, [query, userLoc]);
+
+  const handleChange = (e) => {
+    setQuery(e.target.value);
   };
 
   return (
-    <div style={{ position: "absolute", top: 10, left: 10, zIndex: 1000 }}>
+    <div>
       <input
-        value={text}
+        type="text"
+        placeholder="Search location..."
+        value={query}
         onChange={handleChange}
-        placeholder="Search places..."
-        style={{
-          padding: "8px",
-          width: "250px",
-          borderRadius: "6px",
-        }}
       />
 
-      {/* suggestions */}
-      <div
-        style={{
-          background: "white",
-          color: "black",
-          maxHeight: "200px",
-          overflowY: "auto",
-        }}
-      >
-        {suggestions.map((s, i) => (
-          <div
-            key={i}
-            onClick={() => {
-              if (!s?.lat || !s?.lon) return;
+      {loading && <p>Loading...</p>}
 
-              onSelect(s);
-              setSuggestions([]);
-              setText(s.name);
-            }}
-            style={{
-              padding: "6px",
-              cursor: "pointer",
-              borderBottom: "1px solid #ddd",
-            }}
-          >
-            {s.name}
-          </div>
-        ))}
-      </div>
+      {places.map((place) => (
+        <div key={place.place_id}>
+          {place.display_name}
+        </div>
+      ))}
     </div>
   );
 }
+
+export default SearchBar;

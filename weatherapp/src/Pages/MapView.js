@@ -146,39 +146,55 @@ function WeatherLayer({
     });
   
     useEffect(() => {
-      const load = async () => {
-        const bounds = map.getBounds();
-        const data = await getPlaces(bounds);
-  
-        const enriched = await Promise.all(
-          data.map(async (p) => {
-            const fullWeather = await getWeather(p.lat, p.lon);
-            return {
-              lat: p.lat,
-              lon: p.lon,
-              name: p.tags['name:en'] || p.tags['name'],
-              weather: fullWeather,  // Store full data
-              type: getWeatherType(fullWeather?.current_weather?.weathercode),
-            };
-          })
-        );
-  
-        setPlaces(enriched);
-      };
-  
-      const handleMove = () => {
-        clearTimeout(timeoutRef.current);
-        timeoutRef.current = setTimeout(load, 1500);
-      };
-  
-      load();
-      map.on("move", handleMove);
-  
-      return () => {
-        map.off("move", handleMove);
-        clearTimeout(timeoutRef.current);
-      };
-    }, [map]);
+        const load = async () => {
+          const bounds = map.getBounds();
+          const data = await getPlaces(bounds);
+      
+          const enriched = await Promise.all(
+            data.map(async (p) => {
+              const fullWeather = await getWeather(p.lat, p.lon);
+      
+              return {
+                lat: p.lat,
+                lon: p.lon,
+                name: p.tags['name:en'] || p.tags['name'],
+                weather: fullWeather,
+                type: getWeatherType(fullWeather?.current_weather?.weathercode),
+              };
+            })
+          );
+      
+          setPlaces(enriched);
+        };
+      
+        const handleMove = () => {
+          clearTimeout(timeoutRef.current);
+      
+          timeoutRef.current = setTimeout(() => {
+      
+            // optional protection against huge area queries
+            if (map.getZoom() < 13) return;
+      
+            load();
+      
+          }, 700);
+        };
+      
+        // initial load
+        load();
+      
+        // ONLY fire after movement/zoom ENDS
+        map.on("moveend", handleMove);
+        map.on("zoomend", handleMove);
+      
+        return () => {
+          map.off("moveend", handleMove);
+          map.off("zoomend", handleMove);
+      
+          clearTimeout(timeoutRef.current);
+        };
+      
+      }, [map]);
   
     return (
       <>
@@ -192,7 +208,7 @@ function WeatherLayer({
               <div>
                 <b>Place: {searchMarker.name}</b>
                 <br />
-                <b>{searchMarker.type}</b>
+                <b>Weather: {searchMarker.type} {getEmoji(searchMarker.type)}</b>
                 <br/>
                 <WeatherDetails weatherData={searchMarker.weather} />
               </div>
@@ -223,7 +239,7 @@ function WeatherLayer({
               <div>
                 <strong>Your Location</strong>
                 <br />
-                <b>{getWeatherType(userWeatherData.current_weather?.weathercode)}</b>
+                <b>Weather: {getWeatherType(userWeatherData.current_weather?.weathercode)} {getEmoji(getWeatherType(userWeatherData.current_weather?.weathercode))}</b>
                 <br/>
                 <WeatherDetails weatherData={userWeatherData} />
               </div>
@@ -240,9 +256,9 @@ function WeatherLayer({
           >
             <Popup>
               <div>
-                <b>{p.name}</b>
+                <b>Place: {p.name}</b>
                 <br />
-                <b>{p.type}</b>
+                <b>Weather: {p.type} {getEmoji(p.type)}</b>
                 <br/>
                 <WeatherDetails weatherData={p.weather} />
               </div>
