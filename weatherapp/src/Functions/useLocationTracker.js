@@ -2,73 +2,40 @@ import { useEffect, useRef } from "react";
 import getYourLocation from "../Functions/getYourLocation";
 
 const useLocationTracker = (onChange) => {
-  const prevRef = useRef(null);
+  const prev = useRef(null);
 
   useEffect(() => {
-
-    const track = async () => {
-
+    const check = async () => {
       try {
+        const loc = await getYourLocation();
 
-        const current =
-          await getYourLocation();
-
-        const prev =
-          prevRef.current;
-
-        prevRef.current =
-          current;
-
-        if (prev) {
-
-          const dist =
-            getDistanceKm(prev, current);
-
-          // only trigger if meaningful movement
-          if (dist > 2) {
-            onChange(current, dist);
-          }
-
-        } else {
-          onChange(current, 0);
+        if (!prev.current) {
+          prev.current = loc;
+          onChange(loc);
+          return;
         }
 
-      } catch (err) {
-        console.log("Tracking error:", err);
+        const dist =
+          Math.sqrt(
+            Math.pow(loc.lat - prev.current.lat, 2) +
+            Math.pow(loc.lon - prev.current.lon, 2)
+          ) * 111;
+
+        // only update if moved > ~1 km
+        if (dist > 1) {
+          prev.current = loc;
+          onChange(loc);
+        }
+      } catch (e) {
+        console.log("Tracker error:", e);
       }
     };
 
-    track();
+    check();
+    const id = setInterval(check, 240000); // 4 min
 
-    const interval =
-      setInterval(track, 4 * 60 * 1000);
-
-    return () => clearInterval(interval);
-
+    return () => clearInterval(id);
   }, [onChange]);
-};
-
-// helper
-const getDistanceKm = (a, b) => {
-
-  const R = 6371;
-
-  const dLat =
-    (b.lat - a.lat) * Math.PI / 180;
-
-  const dLon =
-    (b.lon - a.lon) * Math.PI / 180;
-
-  const lat1 = a.lat * Math.PI / 180;
-  const lat2 = b.lat * Math.PI / 180;
-
-  const x =
-    Math.sin(dLat / 2) ** 2 +
-    Math.cos(lat1) *
-    Math.cos(lat2) *
-    Math.sin(dLon / 2) ** 2;
-
-  return 2 * R * Math.asin(Math.sqrt(x));
 };
 
 export default useLocationTracker;
