@@ -1,7 +1,5 @@
 const getPlaces = async (bounds) => {
 
-  console.log("Entered places");
-
   const south = bounds.getSouth();
   const west = bounds.getWest();
   const north = bounds.getNorth();
@@ -93,8 +91,6 @@ const getPlaces = async (bounds) => {
 
   // 🔥 final cap
   const limitedPlaces = result.slice(0, 100);
-
-  console.log("Balanced Places:", limitedPlaces);
 
   return limitedPlaces;
 };
