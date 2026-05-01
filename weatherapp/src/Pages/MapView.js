@@ -14,8 +14,8 @@ import "leaflet/dist/leaflet.css";
 import getWeather from "../Functions/getWeather";
 import getPlaces from "../Functions/getPlaces";
 import getWeatherType from "../Functions/getWeatherType";
-import getYourLocation from "../Functions/getYourLocation";
 import getEmoji from "../Functions/getEmoji";
+import useLocationTracker from "../Functions/useLocationTracker";
 
 // 🌦️ Weather icon
 const createIcon = (emoji) =>
@@ -35,316 +35,159 @@ const createIcon = (emoji) =>
 
 // 📏 Calculate visible map width
 const getMapWidthKm = (bounds) => {
-
   const west = bounds.getWest();
   const east = bounds.getEast();
-
-  const centerLat =
-    bounds.getCenter().lat;
+  const centerLat = bounds.getCenter().lat;
 
   const kmPerDegree = 111;
 
   return (
     Math.abs(east - west) *
     kmPerDegree *
-    Math.cos(
-      (centerLat * Math.PI) / 180
-    )
+    Math.cos((centerLat * Math.PI) / 180)
   );
 };
 
 function WeatherLayer() {
-
   const map = useMap();
 
-  const [places, setPlaces] =
-    useState([]);
+  const [places, setPlaces] = useState([]);
+  const [userLocation, setUserLocation] = useState(null);
+  const [userWeather, setUserWeather] = useState(null);
 
-  const [userLocation, setUserLocation] =
-    useState(null);
+  const timeoutRef = useRef(null);
 
-  const [userWeather, setUserWeather] =
-    useState(null);
+  // ✅ NEW LOCATION LOGIC (REPLACES OLD SYSTEM)
+  const handleLocationChange = async (location) => {
+    console.log("📍 New location:", location);
 
-  // 🧠 debounce timer
-  const timeoutRef =
-    useRef(null);
+    setUserLocation(location);
+
+    try {
+      const weather = await getWeather(location.lat, location.lon);
+
+      const code = weather?.current_weather?.weathercode;
+
+      setUserWeather(getWeatherType(code));
+
+      // keep map synced with user
+      map.setView([location.lat, location.lon], 11);
+    } catch (err) {
+      console.log("Location weather error:", err);
+    }
+  };
+
+  // ✅ TRACK USER LOCATION CONTINUOUSLY
+  useLocationTracker(handleLocationChange);
 
   useEffect(() => {
-
-    // 📍 User location
-    const fetchUserLocation =
-      async () => {
-
-      try {
-
-        const location =
-          await getYourLocation();
-
-        setUserLocation(location);
-
-        const weather =
-          await getWeather(
-            location.lat,
-            location.lon
-          );
-
-        const code =
-          weather?.current_weather
-          ?.weathercode;
-
-        setUserWeather(
-          getWeatherType(code)
-        );
-
-        // 🎯 center on user
-        map.setView(
-          [
-            location.lat,
-            location.lon,
-          ],
-          11
-        );
-
-      } catch (err) {
-
-        console.log(
-          "Location Error:",
-          err
-        );
-      }
-    };
-
     // 🌦️ Fetch weather
-    const fetchWeather =
-      async () => {
+    const fetchWeather = async () => {
+      const bounds = map.getBounds();
+      const widthKm = getMapWidthKm(bounds);
 
-      const bounds =
-        map.getBounds();
+      console.log("Visible Width:", widthKm);
 
-      const widthKm =
-        getMapWidthKm(bounds);
-
-      console.log(
-        "Visible Width:",
-        widthKm
-      );
-
-      // ❌ No weather if too zoomed out
-      if (widthKm > 75) {
-
+      if (widthKm > 100) {
         setPlaces([]);
-
-        console.log(
-          "Zoom in to view weather"
-        );
-
+        console.log("Zoom in to view weather");
         return;
       }
 
       try {
+        const visiblePlaces = await getPlaces(bounds);
+        const limitedPlaces = visiblePlaces.slice(0, 100);
 
-        const visiblePlaces =
-          await getPlaces(bounds);
+        const results = await Promise.all(
+          limitedPlaces.map(async (p) => {
+            try {
+              const weather = await getWeather(p.lat, p.lon);
 
-        // limit requests
-        const limitedPlaces =
-          visiblePlaces.slice(0, 100);
+              const code = weather?.current_weather?.weathercode;
 
-        const results =
-          await Promise.all(
-
-            limitedPlaces.map(
-              async (p) => {
-
-                try {
-
-                  const weather =
-                    await getWeather(
-                      p.lat,
-                      p.lon
-                    );
-
-                  const code =
-                    weather
-                    ?.current_weather
-                    ?.weathercode;
-
-                  return {
-
-                    lat: p.lat,
-                    lon: p.lon,
-
-                    name:
-                      p.tags?.name ||
-                      "Unknown",
-
-                    type:
-                      getWeatherType(
-                        code
-                      ),
-                  };
-
-                } catch (err) {
-
-                  console.log(
-                    "Weather Error:",
-                    err
-                  );
-
-                  return null;
-                }
-              }
-            )
-          );
-
-        setPlaces(
-          results.filter(Boolean)
+              return {
+                lat: p.lat,
+                lon: p.lon,
+                name: p.tags?.name || "Unknown",
+                type: getWeatherType(code),
+              };
+            } catch (err) {
+              return null;
+            }
+          })
         );
 
+        setPlaces(results.filter(Boolean));
       } catch (err) {
-
-        console.log(
-          "Place API Error:",
-          err
-        );
+        console.log("Place API Error:", err);
       }
     };
 
-    // 🚀 Debounced trigger
-    const triggerFetch =
-      () => {
+    const triggerFetch = () => {
+      clearTimeout(timeoutRef.current);
 
-      clearTimeout(
-        timeoutRef.current
-      );
-
-      timeoutRef.current =
-        setTimeout(() => {
-
-          fetchWeather();
-
-        }, 500);
+      timeoutRef.current = setTimeout(() => {
+        fetchWeather();
+      }, 500);
     };
 
-    // Initial location
-    fetchUserLocation();
+    map.on("moveend", triggerFetch);
 
-    // Only ONE event
-    map.on(
-      "moveend",
-      triggerFetch
-    );
-
-    // Cleanup
     return () => {
-
-      clearTimeout(
-        timeoutRef.current
-      );
-
-      map.off(
-        "moveend",
-        triggerFetch
-      );
+      clearTimeout(timeoutRef.current);
+      map.off("moveend", triggerFetch);
     };
-
   }, [map]);
 
   return (
     <>
-
       {/* 📍 USER MARKER */}
       {userLocation && (
-
         <Marker
-          position={[
-            userLocation.lat,
-            userLocation.lon,
-          ]}
+          position={[userLocation.lat, userLocation.lon]}
           icon={L.divIcon({
-
             html: `
               <div style="
                 width: 48px;
                 height: 48px;
-
                 border-radius: 50%;
-
-                background:
-                  rgba(0,191,255,0.2);
-
-                border:
-                  2px solid #00bfff;
-
+                background: rgba(0,191,255,0.2);
+                border: 2px solid #00bfff;
                 display:flex;
                 align-items:center;
                 justify-content:center;
-
                 font-size:24px;
-
-                box-shadow:
-                  0 0 20px #00bfff,
-                  0 0 40px rgba(0,191,255,0.5);
+                box-shadow: 0 0 20px #00bfff, 0 0 40px rgba(0,191,255,0.5);
               ">
                 ${getEmoji(userWeather)}
               </div>
             `,
-
             className: "",
-
             iconSize: [48, 48],
           })}
         >
-
           <Popup>
-
-            <strong>
-              Your Location
-            </strong>
-
+            <strong>Your Location</strong>
             <br />
-
-            Weather:
-            {" "}
-            {userWeather}
-
+            Weather: {userWeather}
           </Popup>
-
         </Marker>
       )}
 
-      {/* 🌦️ WEATHER PLACES */}
+      {/* 🌦️ PLACES */}
       {places.map((p, i) => (
-
         <Marker
           key={i}
-          position={[
-            p.lat,
-            p.lon,
-          ]}
-          icon={createIcon(
-            getEmoji(p.type)
-          )}
+          position={[p.lat, p.lon]}
+          icon={createIcon(getEmoji(p.type))}
         >
-
           <Popup>
-
-            <div style={{
-              fontSize: "16px",
-              fontWeight: "600",
-            }}>
+            <div style={{ fontSize: "16px", fontWeight: "600" }}>
               {p.name}
             </div>
-
             <br />
-
-            Weather:
-            {" "}
-            {p.type}
-
+            Weather: {p.type}
           </Popup>
-
         </Marker>
       ))}
     </>
@@ -352,40 +195,23 @@ function WeatherLayer() {
 }
 
 export default function MapView() {
-
   return (
-
     <MapContainer
-      center={[
-        12.9716,
-        77.5946,
-      ]}
+      center={[12.9716, 77.5946]}
       zoom={11}
-
       zoomAnimation={false}
-
-      style={{
-        height: "100vh",
-        width: "100%",
-      }}
+      style={{ height: "100vh", width: "100%" }}
     >
-
       <TileLayer
         url="https://tiles.stadiamaps.com/tiles/alidade_smooth_dark/{z}/{x}/{y}{r}.png"
-
-        attribution='&copy; OpenStreetMap contributors & Stadia Maps'
-
+        attribution="&copy; OpenStreetMap contributors & Stadia Maps"
         detectRetina={true}
-
         maxZoom={20}
-
         tileSize={512}
-
         zoomOffset={-1}
       />
 
       <WeatherLayer />
-
     </MapContainer>
   );
 }
