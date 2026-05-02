@@ -1,42 +1,41 @@
-const getEmoji = (type, day=0) => {
+const getEmoji = (type, day = 0) => {
 
-    switch (type) {
-  
-      case "Clear Sky":
-        if(day){
-            return "☀️";
-        } else{
-            return "🌕"
-        }
-  
-      case "Slightly Cloudy":
-        if(day){
-            return "⛅";
-        } else{
-            return "🌕"
-        }
-  
-      case "Foggy":
-        return "🌫️";
-  
-      case "Drizzle":
-        return "☂️";
+  // safeguard: ensure string
+  if (typeof type !== "string") return "🤦‍♀️";
 
-      case "Snow":
-        return "❄️";
+  const t = type.trim().toLowerCase();
 
-      case "Rain":
-        return "☔";
+  switch (t) {
 
-      case "Rain Showers":
-        return "🌧️";
+    case "clear sky":
+      return day ? "☀️" : "🌕";
 
-      case "Thunder Storm":
-        return "⛈️"
-  
-      default:
-        return "🤦‍♀️";
-    }
-  };
+    case "slightly cloudy":
+    case "partly cloudy":
+    case "cloudy":
+      return day ? "⛅" : "☁️";
 
-export default getEmoji
+    case "foggy":
+      return "🌫️";
+
+    case "drizzle":
+      return "☂️";
+
+    case "rain":
+      return "☔";
+
+    case "snow":
+      return "❄️";
+
+    case "rain showers":
+      return "🌧️";
+
+    case "thunderstorm":
+      return "⛈️";
+
+    default:
+      return "🤦‍♀️";
+  }
+};
+
+export default getEmoji;

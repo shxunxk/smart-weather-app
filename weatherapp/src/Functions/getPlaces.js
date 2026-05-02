@@ -1,4 +1,5 @@
 const getPlaces = async (bounds) => {
+  console.log("Fetching places")
 
   const south = bounds.getSouth();
   const west = bounds.getWest();
@@ -91,6 +92,8 @@ const getPlaces = async (bounds) => {
 
   // 🔥 final cap
   const limitedPlaces = result.slice(0, 100);
+
+  console.log("Found", limitedPlaces)
 
   return limitedPlaces;
 };

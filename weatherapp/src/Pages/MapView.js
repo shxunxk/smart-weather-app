@@ -59,16 +59,17 @@ function WeatherDetails({ weatherData }) {
             <br/>
             
             {weatherData?.hourly?.time?.map((item, idx) => {
-              // Check if the item matches the selected date
               if (item.split('T')[0] !== selectedDate) return null;
   
               const hour = item.split('T')[1];
               const weatherCode = weatherData?.hourly?.weathercode?.[idx];
               const precipitation = weatherData?.hourly?.precipitation?.[idx];
+              const hourNum = Number(hour.split(":")[0]);
+              const day = hourNum >= 6 && hourNum <= 17 ? 1 : 0;
   
               return (
                 <div key={item}>
-                  <b>Hour: {hour}</b> | Weather: {getEmoji(getWeatherType(weatherCode))} | Precipitation: {precipitation} {units.precipitation}
+                  <b>Hour: {hour}</b> | Weather: {getEmoji(getWeatherType(weatherCode), day)} | Precipitation: {precipitation} {units.precipitation}
                 </div>
               );
             })}
@@ -228,7 +229,7 @@ function WeatherLayer({
                   display:flex; align-items:center; justify-content:center;
                   font-size:24px; box-shadow: 0 0 20px #00bfff;
                 ">
-                  ${getEmoji(userWeatherData.weathercode || userWeatherData.current_weather?.weathercode)}
+                  ${getEmoji(getWeatherType(userWeatherData.current_weather?.weathercode))}
                 </div>
               `,
               className: "",
@@ -252,7 +253,7 @@ function WeatherLayer({
           <Marker
             key={i}
             position={[p.lat, p.lon]}
-            icon={createIcon(getEmoji(p.weather.weathercode || p.weather.current_weather?.weathercode))}
+            icon={createIcon(getEmoji(getWeatherType(p.weather.current_weather?.weathercode)))}
           >
             <Popup>
               <div>
