@@ -7,6 +7,7 @@ const getPlaces = async (bounds) => {
   const east = bounds.getEast();
 
   // 🌍 Fetch towns + villages + urban areas
+  
   const query = `
     [out:json][timeout:25];
 
