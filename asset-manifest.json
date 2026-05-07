@@ -1,13 +1,13 @@
 {
   "files": {
-    "main.css": "/smart-weather-app/static/css/main.2e662a65.css",
+    "main.css": "/smart-weather-app/static/css/main.38dfb1ca.css",
     "main.js": "/smart-weather-app/static/js/main.3487af7c.js",
     "index.html": "/smart-weather-app/index.html",
-    "main.2e662a65.css.map": "/smart-weather-app/static/css/main.2e662a65.css.map",
+    "main.38dfb1ca.css.map": "/smart-weather-app/static/css/main.38dfb1ca.css.map",
     "main.3487af7c.js.map": "/smart-weather-app/static/js/main.3487af7c.js.map"
   },
   "entrypoints": [
-    "static/css/main.2e662a65.css",
+    "static/css/main.38dfb1ca.css",
     "static/js/main.3487af7c.js"
   ]
 }
