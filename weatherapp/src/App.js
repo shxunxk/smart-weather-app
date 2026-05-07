@@ -1,6 +1,7 @@
 import { useState } from "react";
 import MapView from "./Pages/MapView";
 import SearchBar from "./Pages/searchBar";
+import "./App.css"
 
 function App() {
   const [selected, setSelected] = useState({
