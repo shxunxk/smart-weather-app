@@ -3,3 +3,32 @@ html {
   padding: 0;
   border: 0;
 }
+
+/* FORCE popup to have fixed size */
+.custom-popup .leaflet-popup-content-wrapper {
+  width: 50vw !important;
+  height: 60vh !important;          /* ✅ force height instead of max-height */
+  overflow: hidden !important;
+  display: flex;
+}
+
+/* REMOVE default leaflet spacing */
+.custom-popup .leaflet-popup-content {
+  height: 100% !important;          /* fill wrapper */
+  width: 100% !important;
+  overflow-y: auto !important;      /* ✅ THIS enables scroll */
+  overflow-x: hidden;
+  margin: 0 !important;             /* ❗ important */
+  padding: 10px;
+  box-sizing: border-box;
+}
+
+/* Scrollbar styling */
+.custom-popup .leaflet-popup-content::-webkit-scrollbar {
+  width: 6px;
+}
+
+.custom-popup .leaflet-popup-content::-webkit-scrollbar-thumb {
+  background: #888;
+  border-radius: 6px;
+}
