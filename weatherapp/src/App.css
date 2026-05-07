@@ -7,8 +7,8 @@ html {
 
 /* FORCE popup to have fixed size */
 .custom-popup .leaflet-popup-content-wrapper {
-  width: 50vw !important;
-  height: 60vh !important;          /* ✅ force height instead of max-height */
+  width: 30vw !important;
+  height: 30vh !important;          /* ✅ force height instead of max-height */
   overflow: hidden !important;
   display: flex;
 }
