@@ -7,7 +7,7 @@ import {
   Popup,
   useMap,
 } from "react-leaflet";
-
+import toast, { Toaster } from "react-hot-toast";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 
@@ -16,7 +16,7 @@ import getWeather from "../Functions/getWeather";
 import getWeatherType from "../Functions/getWeatherType";
 import getEmoji from "../Functions/getEmoji";
 import useLocationTracker from "../Functions/useLocationTracker";
-import SearchBar from "../Functions/searchBar";
+// import SearchBar from "../Functions/searchBar";
 
 const createIcon = (emoji) =>
   L.divIcon({
@@ -42,10 +42,10 @@ function WeatherDetails({ weatherData }) {
   return (
     <>
       <br /><b>Current Weather:</b><br/>
-      Time: {cw.time}<br/>
+      Time: {cw.time.split("T")[1]}<br/>
       Temp: {cw.temperature}{units.temperature} - Max: {weatherData?.daily?.temperature_2m_max?.[0]} {units.temperature} Min: {weatherData?.daily?.temperature_2m_min?.[0]} {units.temperature}<br/>
       Wind: {cw.windspeed} {units.windspeed} from {cw.winddirection} {units.winddirection}<br/>
-      
+
       {weatherData.daily && (
         <>
           <br/>
@@ -60,7 +60,7 @@ function WeatherDetails({ weatherData }) {
 
           <b>Hourly Weather details for {selectedDate}</b>
           <br/>
-          
+
           {weatherData?.hourly?.time?.map((item, idx) => {
             if (item.split('T')[0] !== selectedDate) return null;
 
@@ -88,6 +88,7 @@ function MapController({
   setSearchMarker,
   triggerFetch,
   setMapInstance,
+  setSelectedLocation,   // ✅ ADDED
 }) {
   const map = useMap();
 
@@ -97,7 +98,7 @@ function MapController({
 
   useEffect(() => {
     if (userLocation?.lat) {
-      map.setView([userLocation.lat, userLocation.lon], 11);
+      map.flyTo([userLocation.lat, userLocation.lon], 11);
     }
   }, [userLocation]);
 
@@ -106,15 +107,20 @@ function MapController({
       const { lat, lng } = e.latlng;
       const weather = await getWeather(lat, lng);
 
-      setSearchMarker({
+      const location = {
         name: `Lat: ${lat.toFixed(4)}, Lon: ${lng.toFixed(4)}`,
         lat,
         lon: lng,
         weather,
         type: getWeatherType(weather?.current_weather?.weathercode),
-      });
+      };
 
-      map.setView([lat, lng], 12);
+      setSearchMarker(location);
+
+      // 🔥 NEW: unified map state
+      setSelectedLocation(location);
+
+      map.flyTo([lat, lng], 12);
       triggerFetch();
     };
 
@@ -138,7 +144,7 @@ function WeatherLayer({
   const [userWeatherData, setUserWeatherData] = useState(null);
 
   const debounceRef = useRef(null);
-  const ignoreMoveRef = useRef(false); // ✅ NEW
+  const ignoreMoveRef = useRef(false);
 
   const fetchPlaces = async () => {
     const bounds = map.getBounds();
@@ -155,9 +161,7 @@ function WeatherLayer({
           lon: p.lon,
           name: p.tags["name:en"] || p.tags.name || "Unknown",
           weather,
-          type: getWeatherType(
-            weather?.current_weather?.weathercode
-          ),
+          type: getWeatherType(weather?.current_weather?.weathercode),
         };
       })
     );
@@ -166,14 +170,13 @@ function WeatherLayer({
   };
 
   const debouncedFetch = () => {
-    if (ignoreMoveRef.current) return; // ✅ NEW
+    if (ignoreMoveRef.current) return;
 
     clearTimeout(debounceRef.current);
 
     debounceRef.current = setTimeout(() => {
       if (map.getZoom() < 10) return;
 
-      console.log("🔥 Fetching places...");
       fetchPlaces();
     }, 3000);
   };
@@ -186,7 +189,7 @@ function WeatherLayer({
 
   useEffect(() => {
     const handler = () => {
-      if (ignoreMoveRef.current) return; // ✅ NEW
+      if (ignoreMoveRef.current) return;
       debouncedFetch();
     };
 
@@ -223,7 +226,14 @@ function WeatherLayer({
   return (
     <>
       {searchMarker?.weather && (
-        <Marker position={[searchMarker.lat, searchMarker.lon]} icon={createIcon("📍")}>
+        <Marker
+          position={[searchMarker.lat, searchMarker.lon]}
+          icon={createIcon("📍")}
+        >
+          <Tooltip permanent direction="top" offset={[0, -10]}>
+            {searchMarker.name}
+          </Tooltip>
+
           <Popup className="custom-popup" autoPan={false} eventHandlers={popupHandlers}>
             <b>{searchMarker.name}</b><br />
             {searchMarker.type} {getEmoji(searchMarker.type)}
@@ -233,12 +243,18 @@ function WeatherLayer({
       )}
 
       {userLocation && userWeatherData && (
-        <Marker position={[userLocation.lat, userLocation.lon]}
-        icon={L.divIcon({
-          html: `<div style="width:48px;height:48px;border-radius:50%;background:rgba(0,191,255,0.2);border:2px solid #00bfff;display:flex;align-items:center;justify-content:center;font-size:24px;">${getEmoji(getWeatherType(userWeatherData.current_weather?.weathercode))}</div>`,
-          className: "",
-          iconSize: [48, 48],
-        })}>
+        <Marker
+          position={[userLocation.lat, userLocation.lon]}
+          icon={L.divIcon({
+            html: `<div style="width:48px;height:48px;border-radius:50%;background:rgba(0,191,255,0.2);border:2px solid #00bfff;display:flex;align-items:center;justify-content:center;font-size:24px;">${getEmoji(getWeatherType(userWeatherData.current_weather?.weathercode))}</div>`,
+            className: "",
+            iconSize: [48, 48],
+          })}
+        >
+          <Tooltip permanent direction="top" offset={[0, -10]}>
+            You are here
+          </Tooltip>
+
           <Popup className="custom-popup" autoPan={false} eventHandlers={popupHandlers}>
             <b>Your Location</b><br />
             {getWeatherType(userWeatherData.current_weather.weathercode)}
@@ -248,7 +264,15 @@ function WeatherLayer({
       )}
 
       {places.map((p, i) => (
-        <Marker key={i} position={[p.lat, p.lon]} icon={createIcon(getEmoji(p.type))}>
+        <Marker
+          key={i}
+          position={[p.lat, p.lon]}
+          icon={createIcon(getEmoji(p.type))}
+        >
+          <Tooltip permanent direction="top" offset={[0, -10]}>
+            {p.name}
+          </Tooltip>
+
           <Popup className="custom-popup" autoPan={false} eventHandlers={popupHandlers}>
             <b>{p.name}</b><br />
             {p.type}
@@ -261,49 +285,52 @@ function WeatherLayer({
 }
 
 /* ---------------- MAIN ---------------- */
-export default function MapView() {
+export default function MapView({
+  selected
+}) {
   const [userLocation, setUserLocation] = useState(null);
   const [searchMarker, setSearchMarker] = useState(null);
   const [mapInstance, setMapInstance] = useState(null);
 
+  const [selectedLocation, setSelectedLocation] = useState(null);
   const triggerFetch = useRef(null);
+
+  useEffect(()=>{
+    if(selected.lat && selected.lon){
+    const weather = getWeather(selected.lat, selected.lon)
+    setSearchMarker({...selected, weather, type: getWeatherType(weather?.current_weather?.weathercode)})
+    setSelectedLocation({...selected, weather, type: getWeatherType(weather?.current_weather?.weathercode)})
+  }},[selected])
+
+  console.log(searchMarker, selectedLocation)
+
+  useEffect(() => {
+    if (!selectedLocation || !mapInstance) return;
+
+    mapInstance.flyTo(
+      [selectedLocation.lat, selectedLocation.lon],
+      13
+    );
+  }, [selectedLocation, mapInstance]);
 
   return (
     <>
-      <SearchBar
-        onSelect={async (loc) => {
-          if (!loc?.lat) return;
-
-          const weather = await getWeather(loc.lat, loc.lon);
-
-          setSearchMarker({
-            name: loc.name || "Searched Location",
-            lat: loc.lat,
-            lon: loc.lon,
-            weather,
-            type: getWeatherType(
-              weather?.current_weather?.weathercode
-            ),
-          });
-
-          mapInstance?.setView([loc.lat, loc.lon], 13);
-          triggerFetch.current?.();
-        }}
-      />
+      <Toaster position="top-right" reverseOrder={false} />
 
       <MapContainer
-        center={[20.5937, 78.9629]}
+        center={[0,0]}
         zoom={5}
+        zoomControl={false}
         style={{ height: "100vh", width: "100%" }}
       >
-        <TileLayer url="https://{s}.basemaps.cartocdn.com/dark_matter/{z}/{x}/{y}{r}.png"
-          attribution='&copy; OpenStreetMap contributors &copy; CARTO' />
+        <TileLayer url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png" />
 
         <MapController
           userLocation={userLocation}
           setSearchMarker={setSearchMarker}
           triggerFetch={() => triggerFetch.current?.()}
           setMapInstance={setMapInstance}
+          setSelectedLocation={setSelectedLocation} // ✅ ADDED
         />
 
         <WeatherLayer

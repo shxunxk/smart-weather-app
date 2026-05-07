@@ -1,12 +1,14 @@
+import toast from "react-hot-toast";
+
 const getPlaces = async (bounds) => {
-  console.log("Fetching places")
+  toast.loading("Fetching places", {
+    duration: 5000,
+  })
 
   const south = bounds.getSouth();
   const west = bounds.getWest();
   const north = bounds.getNorth();
   const east = bounds.getEast();
-
-  // 🌍 Fetch towns + villages + urban areas
   
   const query = `
     [out:json][timeout:25];
@@ -23,25 +25,34 @@ const getPlaces = async (bounds) => {
     out body;
   `;
 
-  const response = await fetch(
-    "https://overpass-api.de/api/interpreter",
-    {
-      method: "POST",
-      body: query,
+  let data = []
+
+  try{
+    const res = await fetch(
+      "https://overpass-api.de/api/interpreter",
+      {
+        method: "POST",
+        body: query,
+      }
+    );
+
+    data = await res.json();
+
+    if(!res.ok){
+      throw new Error(`HTTP Error: ${res.status}`);
     }
-  );
+  }catch(err){
+    toast.error("Overpass API temporarily down", {
+      duration: 5000,
+    })
+  }
 
-  const data = await response.json();
-
-  // 🧠 Safety check
   if (!data?.elements) return [];
 
-  // 📏 priority scoring (importance)
   const priority = {
     suburb: 5, borough: 4, quarter: 3, town: 3, village: 3, city: 1,
   };
 
-  // 📦 grid bucket (spatial partitioning)
   const getBucket = (lat, lon, gridSize = 3) => {
     const latStep = (north - south) / gridSize;
     const lonStep = (east - west) / gridSize;
@@ -59,7 +70,6 @@ const getPlaces = async (bounds) => {
     return `${latIndex}-${lonIndex}`;
   };
 
-  // 🧩 group by spatial bucket
   const gridMap = new Map();
 
   for (const p of data.elements) {
@@ -80,7 +90,6 @@ const getPlaces = async (bounds) => {
     });
   }
 
-  // 🎯 pick balanced results
   const result = [];
 
   for (const [, list] of gridMap.entries()) {
@@ -88,13 +97,14 @@ const getPlaces = async (bounds) => {
     list.sort((a, b) => a.score - b.score);
 
     // take few from each region
-    result.push(...list.slice(0, 6));
+    result.push(...list.slice(0, 3));
   }
 
-  // 🔥 final cap
-  const limitedPlaces = result.slice(0, 100);
+  const limitedPlaces = result.slice(0, 25);
 
-  console.log("Found", limitedPlaces)
+  toast.success("Found places", {
+    duration: 5000,
+  })
 
   return limitedPlaces;
 };

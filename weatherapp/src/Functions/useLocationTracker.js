@@ -1,10 +1,14 @@
 import { useEffect, useRef } from "react";
 import getYourLocation from "../Functions/getYourLocation";
+import toast from "react-hot-toast";
 
 const useLocationTracker = (onChange) => {
   const prev = useRef(null);
 
   useEffect(() => {
+    toast.loading("Fetching user location", {
+      duration: 5000,
+    })
     const check = async () => {
       try {
         const loc = await getYourLocation();
@@ -32,7 +36,7 @@ const useLocationTracker = (onChange) => {
     };
 
     check();
-    const id = setInterval(check, 240000); // 4 min
+    const id = setInterval(check, 240000);
 
     return () => clearInterval(id);
   }, [onChange]);

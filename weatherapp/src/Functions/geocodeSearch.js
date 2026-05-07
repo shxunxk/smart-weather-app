@@ -1,15 +1,30 @@
+import toast from "react-hot-toast";
+
 const geocodeSearch = async (query, userLoc) => {
 
-  const res = await fetch(
-    `https://nominatim.openstreetmap.org/search?format=jsonv2&q=${query}`,
-    {
-      headers: {
-        "Accept-Language": "en",
-      },
-    }
-  );
+  let data = [];
 
-  const data = await res.json();
+  try {
+    const res = await fetch(
+      `https://nominatim.openstreetmap.org/search?format=json&q=${query}`,
+    );
+
+    data = await res.json();
+
+    if(!res.ok){
+      throw new Error(`HTTP Error: ${res.status}`);
+    }
+
+  } catch (err) {
+    toast.error("Nominatim API temporarily down", {
+      duration: 5000,
+    });
+    return [];
+  }
+
+  if (!userLoc) {
+    return data;
+  }
 
   const withDistance = data.map((p) => {
 

@@ -1,6 +1,5 @@
 const getEmoji = (type, day = 0) => {
 
-  // safeguard: ensure string
   if (typeof type !== "string") return "🤦‍♀️";
 
   const t = type.trim().toLowerCase();
@@ -13,7 +12,7 @@ const getEmoji = (type, day = 0) => {
     case "slightly cloudy":
     case "partly cloudy":
     case "cloudy":
-      return day ? "⛅" : "☁️";
+      return "☁️";
 
     case "foggy":
       return "🌫️";
