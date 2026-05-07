@@ -5,26 +5,23 @@ html {
   overflow-y: auto !important;
 }
 
-/* FORCE popup to have fixed size */
 .custom-popup .leaflet-popup-content-wrapper {
   width: 30vw !important;
-  height: 30vh !important;          /* ✅ force height instead of max-height */
+  height: 30vh !important;
   overflow: hidden !important;
   display: flex;
 }
 
-/* REMOVE default leaflet spacing */
 .custom-popup .leaflet-popup-content {
-  height: 100% !important;          /* fill wrapper */
+  height: 100% !important;
   width: 100% !important;
-  overflow-y: auto !important;      /* ✅ THIS enables scroll */
+  overflow-y: auto !important;
   overflow-x: hidden;
-  margin: 0 !important;             /* ❗ important */
+  margin: 0 !important;
   padding: 10px;
   box-sizing: border-box;
 }
 
-/* Scrollbar styling */
 .custom-popup .leaflet-popup-content::-webkit-scrollbar {
   width: 6px;
 }

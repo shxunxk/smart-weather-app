@@ -295,12 +295,26 @@ export default function MapView({
   const [selectedLocation, setSelectedLocation] = useState(null);
   const triggerFetch = useRef(null);
 
-  useEffect(()=>{
-    if(selected.lat && selected.lon){
-    const weather = getWeather(selected.lat, selected.lon)
-    setSearchMarker({...selected, weather, type: getWeatherType(weather?.current_weather?.weathercode)})
-    setSelectedLocation({...selected, weather, type: getWeatherType(weather?.current_weather?.weathercode)})
-  }},[selected])
+  useEffect(() => {
+    const loadSelectedLocation = async () => {
+      if (selected?.lat && selected?.lon) {
+        const weather = await getWeather(selected.lat, selected.lon);
+  
+        const locationData = {
+          ...selected,
+          weather,
+          type: getWeatherType(
+            weather?.current_weather?.weathercode
+          ),
+        };
+  
+        setSearchMarker(locationData);
+        setSelectedLocation(locationData);
+      }
+    };
+  
+    loadSelectedLocation();
+  }, [selected]);
 
   console.log(searchMarker, selectedLocation)
 

@@ -38,6 +38,13 @@ function SearchBar({ userLoc, onSelect }) {
         color: "white",
       }}
     >
+      <div
+      style={{
+        display: "flex",
+        alignItems: "center",
+        background: "#222",
+      }}
+    >
       <input
         type="text"
         placeholder="Search location..."
@@ -52,6 +59,19 @@ function SearchBar({ userLoc, onSelect }) {
           color: "white",
         }}
       />
+
+      <div
+        onClick={() => setQuery("")}
+        style={{
+          padding: "0 10px",
+          cursor: "pointer",
+          color: "white",
+          fontWeight: "bold",
+        }}
+      >
+        ✕
+      </div>
+    </div>
 
       {loading && (
         <div style={{ padding: "10px", fontSize: "12px" }}>Loading...</div>
